@@ -1,56 +1,47 @@
-import Container from '../components/container'
-import MoreStories from '../components/more-stories'
-import HeroPost from '../components/hero-post'
-import Intro from '../components/intro'
-import Layout from '../components/layout'
-import { getAllPosts } from '../lib/api'
-import Head from 'next/head'
-import { CMS_NAME } from '../lib/constants'
-import Post from '../interfaces/post'
+import * as React from 'react';
+import CssBaseline from '@mui/material/CssBaseline';
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Unstable_Grid2';
+import TextProcessForm from '../components/text-process-form'
+import { styled } from '@mui/material/styles';
+import Paper from '@mui/material/Paper';
+import SAMPLE_TEXT from './api/sampleText'
+
+const Item = styled(Paper)(({ theme }) => ({
+  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
+  ...theme.typography.body2,
+  padding: theme.spacing(1),
+  textAlign: 'center',
+  color: theme.palette.text.secondary,
+}));
 
 type Props = {
-  allPosts: Post[]
+  dataSample?: string
 }
 
-export default function Index({ allPosts }: Props) {
-  const heroPost = allPosts[0]
-  const morePosts = allPosts.slice(1)
+export default function Index({ dataSample }: Props) {
+
   return (
-    <>
-      <Layout>
-        <Head>
-          <title>{`Next.js Blog Example with ${CMS_NAME}`}</title>
-        </Head>
-        <Container>
-          <Intro />
-          {heroPost && (
-            <HeroPost
-              title={heroPost.title}
-              coverImage={heroPost.coverImage}
-              date={heroPost.date}
-              author={heroPost.author}
-              slug={heroPost.slug}
-              excerpt={heroPost.excerpt}
-            />
-          )}
-          {morePosts.length > 0 && <MoreStories posts={morePosts} />}
-        </Container>
-      </Layout>
-    </>
+      <React.Fragment>
+        <CssBaseline />
+        <Box sx={{ width: '100%' }} >
+          <Grid container spacing={2}>
+            <Grid md={2}>
+            </Grid>
+            <Grid md={8}>
+              <Item><TextProcessForm defaultRawData={dataSample}></TextProcessForm></Item>
+            </Grid>
+            <Grid md={2}>
+            </Grid>
+          </Grid>
+        </Box>
+      </React.Fragment>
   )
 }
 
 export const getStaticProps = async () => {
-  const allPosts = getAllPosts([
-    'title',
-    'date',
-    'slug',
-    'author',
-    'coverImage',
-    'excerpt',
-  ])
 
   return {
-    props: { allPosts },
+    props: { dataSample:SAMPLE_TEXT },
   }
 }
