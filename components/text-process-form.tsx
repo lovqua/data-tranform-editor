@@ -48,7 +48,7 @@ const TextProcessForm = ({ defaultRawData }: Props) => {
     )
     const [tranformSteps, addTransform, updateResults, loadConfigs] = useCodeTransformPipeline()
     const transformInputs = []
-    for(let [key, value] of Object.entries(tranformSteps)){
+    for(let [, value] of Object.entries(tranformSteps)){
         transformInputs.push(value.el)
     }
 
@@ -60,7 +60,7 @@ const TextProcessForm = ({ defaultRawData }: Props) => {
         setResult({})
         let finalResult:any = rawData
         let hasError = false
-        for(let [key, value] of Object.entries(tranformSteps)){
+        for(let [, value] of Object.entries(tranformSteps)){
             if(hasError){
                 value.result = null
                 value.error = null
@@ -241,6 +241,14 @@ function useCodeTransformPipeline(): [DataTransformStep,Function, Function,Funct
             return <FormControlLabel control={<Checkbox defaultChecked onChange={enableHandler} />} label="Enable" />
         }
 
+        const buildDeleteEl = (key: string)=> {
+            const deleteHandler = ()=>{
+                delete values[key]
+                forceUpdate()
+            }
+            return <Button variant="contained" onClick={deleteHandler}>Delete</Button>
+        }
+
         const transformResult =(key) =>(
             <JSONEditorReact
                 json={ (values[key]?.result) ? values[key]?.result : ""}
@@ -279,7 +287,10 @@ function useCodeTransformPipeline(): [DataTransformStep,Function, Function,Funct
                     </AccordionSummary>
                     <AccordionDetails>
                         <div>
-                            {buildEnableEl(key)}
+                            <div>
+                                {buildEnableEl(key)}
+                                {buildDeleteEl(key)}
+                            </div>
                             {buildInputEl(key)}
                             {values[key].error? buildErrorEl(key) : transformResult(key)}
                         </div>
