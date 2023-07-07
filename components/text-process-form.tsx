@@ -22,7 +22,7 @@ import "filepond/dist/filepond.min.css";
 import {FormControlLabel} from "@mui/material";
 import {DataTransformStep} from "../interfaces/DataTransformStep";
 const CodeEditor = dynamic(
-    () => import("@uiw/react-textarea-code-editor").then((mod) => mod.default),
+    () => import("@monaco-editor/react").then((mod) => mod.default),
     { ssr: false }
 )
 const JSONEditorReact = dynamic(
@@ -214,20 +214,13 @@ function useCodeTransformPipeline(): [DataTransformStep,Function, Function,Funct
             }
             return (
                 <FormControl fullWidth sx={{ m: 1 }} variant="filled" >
-                    <CodeEditor
+                    <CodeEditor 
+                        defaultLanguage="typescript" 
+                        defaultValue="//Please enter TS code."
                         id={key}
-                        language="typescript"
-                        placeholder="Please enter TS code."
-                        rows={10}
-                        data-color-mode="dark"
                         value={values[key].value}
-                        onChange={e => valueChange(e.target.value)}
-                        style={{
-                            fontSize: 12,
-                            backgroundColor: "#f5f5f5",
-                            fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
-                        }}
-                        padding={15}
+                        onChange={e => valueChange(e)}
+                        height="200px"
                     />
                 </FormControl>
             )
