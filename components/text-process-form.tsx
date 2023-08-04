@@ -19,12 +19,17 @@ import { red } from '@mui/material/colors';
 import { FilePond } from 'react-filepond'
 import Checkbox from '@mui/material/Checkbox';
 import "filepond/dist/filepond.min.css";
-import {FormControlLabel} from "@mui/material";
-import {DataTransformStep} from "../interfaces/DataTransformStep";
+import {FormControlLabel, stepClasses, TextField} from "@mui/material";
+import {DataTransformStep, DataTransformSteps, DefaultDataTransformStep} from "../interfaces/DataTransformStep";
+//import MonacoEditor from "react-monaco-editor";
+//import {MonacoEditorProps} from "react-monaco-editor/lib/types";
 const CodeEditor = dynamic(
     () => import("@monaco-editor/react").then((mod) => mod.default),
     { ssr: false }
 )
+/*const CodeEditor = ({...rest}:MonacoEditorProps) => (<MonacoEditor
+    {...rest}
+/>)*/
 const JSONEditorReact = dynamic(
     () => import("./JSONEditorReact").then((mod) => mod.default),
     { ssr: false }
@@ -41,16 +46,13 @@ type Props = {
 const TextProcessForm = ({ defaultRawData }: Props) => {
     const [, forceUpdate] = React.useReducer(x => x + 1, 0);
     const [result, setResult] = React.useState({})
-    const [configs, setConfigs] = React.useState({})
+    const [configs, setConfigs] = React.useState([])
     const [rawData, rawDataInput] = useTextField({
             id:"rawData",label:"Raw data", rows: 4 , defaultValue: defaultRawData
         }
     )
-    const [tranformSteps, addTransform, updateResults, loadConfigs] = useCodeTransformPipeline()
-    const transformInputs = []
-    for(let [, value] of Object.entries(tranformSteps)){
-        transformInputs.push(value.el)
-    }
+    const { steps,setSteps, addTransform, loadConfigs, showError, showResult} = useCodeTransformPipeline()
+
 
     const handleTransformText = ()=>{
         const templateCode = (content) =>`({
@@ -58,42 +60,42 @@ const TextProcessForm = ({ defaultRawData }: Props) => {
                 ${content}
             })`
         setResult({})
+        const newSteps = [...steps]
         let finalResult:any = rawData
         let hasError = false
-        for(let [, value] of Object.entries(tranformSteps)){
+        for(let step of newSteps){
             if(hasError){
-                value.result = null
-                value.error = null
+                step.result = null
+                step.error = null
                 continue
             }
-            value.error = null
-            if(value.value){
+            step.error = null
+            if(step.value){
                 try {
-                    let code = ts.transpile(templateCode(value.value))
+                    let code = ts.transpile(templateCode(step.value))
                     let runnalbe :any  = eval(code)
                     finalResult = runnalbe.transform(finalResult)
-                    value.result = finalResult
+                    step.result = finalResult
                 } catch (e){
                     console.error("error",e)
                     hasError = true
-                    value.error = e
-                    value.result = null
+                    step.error = e
+                    step.result = null
                 }
 
             }
         }
+        setSteps(newSteps)
         if(!hasError){
             setResult(finalResult)
         }
-        updateResults()
-        forceUpdate()
     }
     const handleAddTransform = ()=>{
         addTransform()
     }
     const handleExportTransform=()=>{
         const exportObject = []
-        for(let [key, value] of Object.entries(tranformSteps)){
+        for(let [key, value] of Object.entries(steps)){
             exportObject.push({
                 id: value.id,
                 value: value.value,
@@ -126,6 +128,36 @@ const TextProcessForm = ({ defaultRawData }: Props) => {
         }
 
     },[configs])
+
+    const codeChange = (step: DataTransformStep,val)=>{
+        const newStep = {...step, value:  val}
+        const newSteps = steps.map((element, index)=>{
+            if(step.id == element.id){
+                return newStep
+            }
+            return  element
+        })
+        setSteps(newSteps)
+    }
+    const enableHandler = (step: DataTransformStep, event: any)=>{
+        const newStep = {...step, enable:  event.target.checked}
+        const newSteps = steps.map((element, index)=>{
+            if(step.id == element.id){
+                return newStep
+            }
+            return  element
+        })
+        setSteps(newSteps)
+    }
+    const deleteHandler = (step: DataTransformStep)=>{
+        const newSteps = steps.map((element, index)=>{
+            if(step.id == element.id){
+                return null
+            }
+            return  element
+        }).filter(element =>element!=null)
+        setSteps(newSteps)
+    }
     return (
         <Box
             component="form"
@@ -137,7 +169,61 @@ const TextProcessForm = ({ defaultRawData }: Props) => {
         >
             <StyledDiv> Data transform</StyledDiv>
             {rawDataInput}
-            {transformInputs}
+            {steps.map(function(step, i) {
+                return <div key={step.id}>
+                    <Accordion>
+                        <AccordionSummary
+                            expandIcon={<ExpandMoreIcon/>}
+                            aria-controls={step.id + "-panel-content"}
+                            id={step.id + "-panel-header"}
+                        >
+                            <Typography>{step.id}</Typography>
+                            {!!step.error && <Error sx={{color: red[500]}}/>}
+
+                        </AccordionSummary>
+                        <AccordionDetails>
+                            <div>
+                                <div>
+                                    <FormControlLabel control={<Checkbox defaultChecked onChange={(e)=>enableHandler(step, e)}/>}
+                                                      label="Enable"/>
+                                    <Button variant="contained" onClick={()=>deleteHandler(step)}>Delete</Button>
+                                </div>
+                                <FormControl fullWidth sx={{m: 1}} variant="filled">
+                                    <CodeEditor
+                                        defaultLanguage="typescript"
+                                        defaultValue="//Please enter TS code."
+                                        value={step.value}
+                                        onChange={e => codeChange(step, e)}
+                                        height="200px"
+                                    />
+                                </FormControl>
+                                {step.error &&
+                                    <TextField
+                                        error
+                                        label="Error"
+                                        value={step.error.toString()}
+                                        multiline
+                                        maxRows={4}
+                                        fullWidth
+                                        disabled
+                                        InputLabelProps={{
+                                            shrink: true,
+                                        }}
+                                        InputProps={{
+                                            readOnly: true,
+                                        }}
+                                    />}
+                                {!step.error && <JSONEditorReact
+                                    json={(step?.result) ? step?.result : ""}
+                                    mode={'tree'}
+                                    indentation={4}
+                                />}
+                            </div>
+                        </AccordionDetails>
+                    </Accordion>
+
+                </div>
+            })}
             <div>
                 <Stack direction="row" spacing={2}>
                     <Button variant="outlined" onClick={handleAddTransform}>Add transform</Button>
@@ -199,177 +285,67 @@ function useTextField({ id ,type = "text", label, rows=0, defaultValue= "" }): [
     return [value, input];
 }
 
-function useCodeTransformPipeline(): [DataTransformStep,Function, Function,Function] {
-    const [valueCounter, setValueCounter] = React.useState(1)
-    const [values, setValues] = React.useState( {} as DataTransformStep)
-    const [, forceUpdate] = React.useReducer(x => x + 1, 0);
-    const intKeys = new Set<string>()
-    const [keys, setKeys] = React.useState(intKeys)
-
-
-    const buildElement = (key: string)=>{
-        const buildInputEl =(key: string) => {
-            const valueChange = (val)=>{
-                values[key].value = val
-            }
-            return (
-                <FormControl fullWidth sx={{ m: 1 }} variant="filled" >
-                    <CodeEditor 
-                        defaultLanguage="typescript" 
-                        defaultValue="//Please enter TS code."
-                        id={key}
-                        value={values[key].value}
-                        onChange={e => valueChange(e)}
-                        height="200px"
-                    />
-                </FormControl>
-            )
+function useCodeTransformPipeline() {
+    const idPrefix = 'data-transform-step'
+    const [steps, setSteps] = React.useState<DataTransformStep[]>([
+        {
+            ...DefaultDataTransformStep,
+            id: `${idPrefix}-1`
         }
-
-        const buildEnableEl = (key: string)=> {
-            const enableHandler = (event: any)=>{
-                values[key].enable = event.target.checked
-            }
-            console.log("buildEnableEl.enable",values[key].enable)
-            return <FormControlLabel control={<Checkbox defaultChecked onChange={enableHandler} />} label="Enable" />
-        }
-
-        const buildDeleteEl = (key: string)=> {
-            const deleteHandler = ()=>{
-                delete values[key]
-                forceUpdate()
-            }
-            return <Button variant="contained" onClick={deleteHandler}>Delete</Button>
-        }
-
-        const transformResult =(key) =>(
-            <JSONEditorReact
-                json={ (values[key]?.result) ? values[key]?.result : ""}
-                mode={'tree'}
-                indentation={4}
-            />
-        )
-
-        const buildErrorEl = (key: string)=>{
-            return (
-                <CodeEditor
-                    id={"transform-error-"+key}
-                    language="typescript"
-                    rows={10}
-                    data-color-mode="dark"
-                    value={values[key].error.toString()}
-                    style={{
-                        fontSize: 12,
-                        backgroundColor: "#f5f5f5",
-                        fontFamily: 'ui-monospace,SFMono-Regular,SF Mono,Consolas,Liberation Mono,Menlo,monospace',
-                    }}
-                    padding={15}
-                />)
-        }
-        return (
-            <div key={key}>
-                <Accordion>
-                    <AccordionSummary
-                        expandIcon={<ExpandMoreIcon />}
-                        aria-controls={key+"-panel-content"}
-                        id={key+"-panel-header"}
-                    >
-                        <Typography>{key}</Typography>
-                        {!!values[key].error && <Error  sx={{ color: red[500] }}/>}
-
-                    </AccordionSummary>
-                    <AccordionDetails>
-                        <div>
-                            <div>
-                                {buildEnableEl(key)}
-                                {buildDeleteEl(key)}
-                            </div>
-                            {buildInputEl(key)}
-                            {values[key].error? buildErrorEl(key) : transformResult(key)}
-                        </div>
-                    </AccordionDetails>
-                </Accordion>
-
-            </div>
-        )
-    }
-
-
-
-
-
-
-    function valueRender (){
-       /* this.inputEl = buildInputEl(this.id)
-        this.enableEl = buildEnableEl(this.id)
-        this.resultEl = transformResult(this.id)
-        if(this.error){
-            this.errorEl = buildErrorEl(this.id)
-        } else {
-            this.errorEl = null
-        }*/
-        this.el = buildElement(this.id)
-    }
-    const updateResults = ()=>{
-        keys.forEach((key)=>{
-            values[key].render()
-        })
-        forceUpdate()
-    }
-
-    keys.forEach((key)=>{
-        if(!values[key]){
-            values[key]={
-                id: key,
-                value: "",
-                enable: true,
-                result: "",
-                el: null,
-                render: valueRender
-            }
-            values[key].render()
-        }
-    })
-
-    const addTransform = React.useCallback(()=>{
-        setValueCounter(valueCounter+1)
-    },[valueCounter])
+    ])
+    const [counter, count] = React.useReducer(x => x + 1, 1);
 
     React.useEffect(()=>{
-        if(valueCounter>0){
-            const key ="transform-"+valueCounter
-            if(!keys.has(key)){
-                keys.add(key)
-            }
-            forceUpdate()
+        const newId = `${idPrefix}-${counter}`
+        const exist = steps.some(step=>newId == step.id)
+        if(!exist) {
+            const newSteps = [... steps]
+            newSteps.push({
+                ...DefaultDataTransformStep,
+                id: newId
+            })
+            setSteps(newSteps)
         }
-    },[valueCounter])
+
+    },[counter])
+    const addTransform = React.useCallback(()=>{
+        count()
+    },[counter])
+
 
     const loadConfigs= React.useCallback((configs: Array<any>)=>{
         // reset values
-        for (let member in values) {
-            delete values[member];
-        }
-        keys.clear()
-
-        const newCounter = configs.length
+        const newSteps: DataTransformStep[] = []
         for(let config of configs){
             const key = config.id
-            keys.add(key)
-            values[key]={
+            newSteps.push({
                 id: key,
                 value: config.value,
                 enable: config.enable,
                 result: "",
-                el: null,
-                render: valueRender
-            }
-            values[key].render()
+            })
         }
-        setValueCounter(newCounter)
+        setSteps(newSteps)
     },[])
 
-    return [values,addTransform,updateResults,loadConfigs];
+    const showError = React.useCallback((id: string, err: any)=>{
+        const newSteps: DataTransformStep[] = [... steps]
+        const found = newSteps.find(step=>id == step.id)
+        if(found){
+            found.error = err
+            setSteps(newSteps)
+        }
+    },[steps])
+    const showResult = React.useCallback((id: string, result: any)=>{
+        const newSteps: DataTransformStep[] = [... steps]
+        const found = newSteps.find(step=>id == step.id)
+        if(found){
+            found.result = result
+            setSteps(newSteps)
+        }
+    },[steps])
+
+    return {steps, setSteps, addTransform,loadConfigs, showError, showResult};
 }
 
 export default TextProcessForm
