@@ -12,8 +12,13 @@ export type DataTransformStep = {
     error?: any,
     deleted?: boolean
 }
-
+const defaultCodeText =
+`transform: (data: any): any => {
+    //Your code to transform here
+    const newData = data
+    return newData       
+}`
 export const DefaultDataTransformStep: DataTransformStep ={
     enable: true,
-    value: ""
+    value: defaultCodeText
 }

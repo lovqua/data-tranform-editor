@@ -19,17 +19,13 @@ import { red } from '@mui/material/colors';
 import { FilePond } from 'react-filepond'
 import Checkbox from '@mui/material/Checkbox';
 import "filepond/dist/filepond.min.css";
-import {FormControlLabel, stepClasses, TextField} from "@mui/material";
+import {FormControlLabel, TextField} from "@mui/material";
 import {DataTransformStep, DataTransformSteps, DefaultDataTransformStep} from "../interfaces/DataTransformStep";
-//import MonacoEditor from "react-monaco-editor";
-//import {MonacoEditorProps} from "react-monaco-editor/lib/types";
-const CodeEditor = dynamic(
-    () => import("@monaco-editor/react").then((mod) => mod.default),
-    { ssr: false }
-)
-/*const CodeEditor = ({...rest}:MonacoEditorProps) => (<MonacoEditor
+import Editor, {DiffEditor, useMonaco, loader, EditorProps} from '@monaco-editor/react';
+
+const CodeEditor =({...rest}:EditorProps) => (<Editor
     {...rest}
-/>)*/
+/>)
 const JSONEditorReact = dynamic(
     () => import("./JSONEditorReact").then((mod) => mod.default),
     { ssr: false }
@@ -55,10 +51,7 @@ const TextProcessForm = ({ defaultRawData }: Props) => {
 
 
     const handleTransformText = ()=>{
-        const templateCode = (content) =>`({
-            transform: (data: any): any => {
-                ${content}
-            })`
+        const templateCode = (content) =>`({${content})`
         setResult({})
         const newSteps = [...steps]
         let finalResult:any = rawData
@@ -191,7 +184,7 @@ const TextProcessForm = ({ defaultRawData }: Props) => {
                                 <FormControl fullWidth sx={{m: 1}} variant="filled">
                                     <CodeEditor
                                         defaultLanguage="typescript"
-                                        defaultValue="//Please enter TS code."
+                                        defaultValue={DefaultDataTransformStep.value}
                                         value={step.value}
                                         onChange={e => codeChange(step, e)}
                                         height="200px"
